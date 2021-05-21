@@ -702,7 +702,8 @@ class myHandler(BaseHTTPRequestHandler):
                # 블록 요청 from에 음수값, 0값 예외 처리
                 queryString = urlparse(self.path).query.split('&')
                 startPoint = int(queryString[0].split('=')[1])-1
-                endPoint = int(queryString[1].split('=')[1])
+                endPoint = int(queryString[1].split('=')[1])+1
+
 
                 try:
                     self.send_response(200)
@@ -710,26 +711,38 @@ class myHandler(BaseHTTPRequestHandler):
                     self.end_headers()
                                                            ##external 외부 (포스트맨)
                     block = readBlockchain(g_bcFileName, mode = 'external') ## global_blockchain blockchain.csv파일
+
+                    if startPoint<0: ## 쿼리 스트링에서 split을 하면서 인덱스가 -1 되므로 음수일 경우, 0으로 reset
+                        startPoint=0
+
                     if block == None: # 생성된 블럭이 없는 경우
                         print("No Block Exists")
-                        data.append("자동으로 블럭이 생성됩니다")
-                        data.append("다시 getBlockData 실행")
-                        generateGenesisBlock()
+                        data.append("NO BLOCK EXISTS")
 
-                    elif len(block)<endPoint: # 유저가 입력한 블럭 개수가 생성된 개수보다 많은 경우는 현재까지 생성된 블럭 모두 조
-                        print("입력하신 범위보다 블럭이 부족합니다. 따라서 현재까지 생성된 블럭만 조회됩니다.")
-                        print("현재 데이터 개수 :" , len(block))
-                        nodata = [endPoint-startPoint, "요청하신 블럭 수", len(block),"생성된 블럭의 수"]
-                        self.wfile.write(bytes(json.dumps(nodata, sort_keys=True, indent=4), "utf-8"))
-                        data.append("<생성되어 있는 블럭 조회>")
+                    elif startPoint>len(block): # startPoint가 생성된 블럭의 개수보다 클 경우
+                        print("startPoint is out of range")
+                        userRequestData = [startPoint,"startPoint of request",len(block),"Number of blocks"]
+                        self.wfile.write(bytes(json.dumps(userRequestData, sort_keys=True, indent=4), "utf-8"))
 
                         for i in range(0,len(block)):
                             print(block[i].__dict__)
                             data.append(block[i].__dict__)
 
+                    elif len(block)<endPoint: # endPoint가 생성된 개수보다 많은 경우
+                        print("out of request range, only blocks created so far are searched")
+                        print("How many blocks :" , len(block))
+                        data.append("<block info>")
+                        if len(block)==1:
+                            data.append("There are one block with no transaction info")
+                        nodata = [endPoint-startPoint, "user request", len(block),"Number of blocks"]
+                        self.wfile.write(bytes(json.dumps(nodata, sort_keys=True, indent=4), "utf-8"))
 
-                    else:
-                        data.append(len(block))
+                        for i in range(0,len(block)):
+                            print(block[i].__dict__)
+                            data.append(block[i].__dict__)
+
+                    else: # request를 통해 들어온 start,end point가 생성된 블럭의 범위 내에 있는 경우
+                        data.append(["how many blocks",len(block)])
                         for i in range(startPoint, endPoint):
                             print(block[i].__dict__)
                             data.append(block[i].__dict__)
